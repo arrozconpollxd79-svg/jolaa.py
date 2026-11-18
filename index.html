@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Defensor Galáctico - Móvil</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #090a0f; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .hud { display: flex; justify-content: space-between; color: #fff; font-size: 20px; font-weight: bold; text-shadow: 0 0 10px rgba(0,255,255,.7); }
+        #game-over-screen { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(15,20,35,.9); border:2px solid #00f3ff; border-radius:15px; padding:30px; text-align:center; color:white; display:none; pointer-events:auto; box-shadow:0 0 30px rgba(0,243,255,.4); width:80%; max-width:320px; }
+        #game-over-screen h1 { margin:0 0 10px; color:#ff2a6d; font-size:28px; }
+        #game-over-screen p { font-size:18px; margin:8px 0; }
+        button { margin-top:20px; padding:15px 30px; font-size:18px; font-weight:bold; background:linear-gradient(45deg,#00f3ff,#0066ff); color:#000; border:none; border-radius:25px; cursor:pointer; box-shadow:0 4px 15px rgba(0,243,255,.5); width:100%; }
+        button:active { transform:scale(.95); }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-layer"><div class="hud"><div id="scoreText">Puntos: 0</div><div id="highScoreText">Récord: 0</div></div></div>
+    <div id="game-over-screen"><h1>¡NAVE DESTRUIDA!</h1><p id="finalScore">Puntos: 0</p><p id="bestScore">Récord: 0</p><button onclick="reiniciarJuego()">VOLVER A JUGAR</button></div>
+    <script>
+        const canvas=document.getElementById("gameCanvas"),ctx=canvas.getContext("2d");
+        const scoreText=document.getElementById("scoreText"),highScoreText=document.getElementById("highScoreText"),gameOverScreen=document.getElementById("game-over-screen"),finalScore=document.getElementById("finalScore"),bestScore=document.getElementById("bestScore");
+        function ajustarPantalla(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+        window.addEventListener("resize",ajustarPantalla);ajustarPantalla();
+        let puntos=0,record=localStorage.getItem("spaceRecord")||0,juegoTerminado=false,frames=0;
+        highScoreText.innerText="Récord: "+record;
+        const jugador={x:canvas.width/2,y:canvas.height-100,radio:22,color:"#00f3ff",disparoTriple:0};
+        let balas=[],enemigos=[],particulas=[],powerUps=[],estrellas=[];
+        for(let i=0;i<60;i++)estrellas.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,tamaño:Math.random()*2+.5,velocidad:Math.random()*2+.5});
+        let tocando=false;
+        function moverJugador(clientX,clientY){if(juegoTerminado)return;jugador.x=clientX;jugador.y=clientY-50;if(jugador.x<jugador.radio)jugador.x=jugador.radio;if(jugador.x>canvas.width-jugador.radio)jugador.x=canvas.width-jugador.radio;if(jugador.y<jugador.radio)jugador.y=jugador.radio;if(jugador.y>canvas.height-jugador.radio)jugador.y=canvas.height-jugador.radio;}
+        canvas.addEventListener("touchstart",e=>{tocando=true;moverJugador(e.touches[0].clientX,e.touches[0].clientY)});
+        canvas.addEventListener("touchmove",e=>{if(tocando)moverJugador(e.touches[0].clientX,e.touches[0].clientY)});
+        canvas.addEventListener("touchend",()=>tocando=false);
+        canvas.addEventListener("mousemove",e=>{if(e.buttons===1)moverJugador(e.clientX,e.clientY)});
+        function disparar(){if(jugador.disparoTriple>0){balas.push({x:jugador.x,y:jugador.y-20,vx:0,vy:-12},{x:jugador.x-15,y:jugador.y-10,vx:-2,vy:-11},{x:jugador.x+15,y:jugador.y-10,vx:2,vy:-11});}else balas.push({x:jugador.x,y:jugador.y-20,vx:0,vy:-12});}
+        function crearEnemigo(){const radio=Math.random()*15+15,esFuerte=Math.random()<.25;enemigos.push({x:Math.random()*(canvas.width-radio*2)+radio,y:-radio,radio,velocidad:Math.random()*2+2+puntos*.01,vida:esFuerte?3:1,color:esFuerte?"#ffbe0b":"#ff2a6d"});}
+        function crearExplosion(x,y,color){for(let i=0;i<12;i++)particulas.push({x,y,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8,alfa:1,color});}
+        function actualizar(){if(juegoTerminado)return;frames++;estrellas.forEach(est=>{est.y+=est.velocidad;if(est.y>canvas.height){est.y=0;est.x=Math.random()*canvas.width;}});if(frames%12===0)disparar();if(jugador.disparoTriple>0)jugador.disparoTriple--;let frecuencia=Math.max(20,50-Math.floor(puntos/10));if(frames%frecuencia===0)crearEnemigo();if(frames%600===0)powerUps.push({x:Math.random()*(canvas.width-40)+20,y:-20,radio:14,velocidad:3});for(let i=balas.length-1;i>=0;i--){balas[i].x+=balas[i].vx;balas[i].y+=balas[i].vy;if(balas[i].y<0)balas.splice(i,1);}for(let i=powerUps.length-1;i>=0;i--){let p=powerUps[i];p.y+=p.velocidad;let dist=Math.hypot(jugador.x-p.x,jugador.y-p.y);if(dist<jugador.radio+p.radio){jugador.disparoTriple=300;crearExplosion(p.x,p.y,"#00ff88");powerUps.splice(i,1);continue;}if(p.y>canvas.height)powerUps.splice(i,1);}for(let i=enemigos.length-1;i>=0;i--){let en=enemigos[i];en.y+=en.velocidad;let distJugador=Math.hypot(jugador.x-en.x,jugador.y-en.y);if(distJugador<jugador.radio+en.radio-5){crearExplosion(jugador.x,jugador.y,"#00f3ff");terminarJuego();}for(let j=balas.length-1;j>=0;j--){let b=balas[j],distBala=Math.hypot(b.x-en.x,b.y-en.y);if(distBala<en.radio+5){balas.splice(j,1);en.vida--;if(en.vida<=0){crearExplosion(en.x,en.y,en.color);enemigos.splice(i,1);puntos+=10;scoreText.innerText="Puntos: "+puntos;break;}}}if(en&&en.y>canvas.height+en.radio)enemigos.splice(i,1);}for(let i=particulas.length-1;i>=0;i--){let part=particulas[i];part.x+=part.vx;part.y+=part.vy;part.alfa-=.03;if(part.alfa<=0)particulas.splice(i,1);}}
+        function dibujar(){ctx.fillStyle="rgba(9,10,15,.4)";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#ffffff";estrellas.forEach(est=>{ctx.beginPath();ctx.arc(est.x,est.y,est.tamaño,0,Math.PI*2);ctx.fill();});if(!juegoTerminado){ctx.save();ctx.translate(jugador.x,jugador.y);ctx.beginPath();ctx.moveTo(0,-25);ctx.lineTo(20,20);ctx.lineTo(0,10);ctx.lineTo(-20,20);ctx.closePath();ctx.fillStyle=jugador.disparoTriple>0?"#00ff88":jugador.color;ctx.shadowBlur=15;ctx.shadowColor=ctx.fillStyle;ctx.fill();ctx.restore();}ctx.fillStyle="#00f3ff";balas.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();});powerUps.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.radio,0,Math.PI*2);ctx.fillStyle="#00ff88";ctx.shadowBlur=15;ctx.shadowColor="#00ff88";ctx.fill();ctx.shadowBlur=0;});enemigos.forEach(en=>{ctx.beginPath();ctx.arc(en.x,en.y,en.radio,0,Math.PI*2);ctx.fillStyle=en.color;ctx.shadowBlur=10;ctx.shadowColor=en.color;ctx.fill();ctx.shadowBlur=0;});particulas.forEach(part=>{ctx.save();ctx.globalAlpha=part.alfa;ctx.fillStyle=part.color;ctx.beginPath();ctx.arc(part.x,part.y,3,0,Math.PI*2);ctx.fill();ctx.restore();});}
+        function bucle(){actualizar();dibujar();requestAnimationFrame(bucle);}function terminarJuego(){juegoTerminado=true;if(puntos>record){record=puntos;localStorage.setItem("spaceRecord",record);highScoreText.innerText="Récord: "+record;}finalScore.innerText="Puntos: "+puntos;bestScore.innerText="Récord: "+record;gameOverScreen.style.display="block";}function reiniciarJuego(){puntos=0;scoreText.innerText="Puntos: 0";enemigos=[];balas=[];powerUps=[];particulas=[];jugador.x=canvas.width/2;jugador.y=canvas.height-100;jugador.disparoTriple=0;juegoTerminado=false;gameOverScreen.style.display="none";}bucle();
+    </script>
+</body>
+</html>
